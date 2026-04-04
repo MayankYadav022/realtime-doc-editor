@@ -13,6 +13,7 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
     const roomIdRef = useRef(roomId);
     const remoteCursorMarksRef = useRef({});
     const isApplyingRemoteChangeRef = useRef(false);
+    const suppressCursorEmitUntilRef = useRef(0);
 
     useEffect(() => {
         onCodeChangeRef.current = onCodeChange;
@@ -53,6 +54,7 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
 
             editorRef.current.on('cursorActivity', (instance) => {
                 if (!socket || isApplyingRemoteChangeRef.current) return;
+                if (Date.now() < suppressCursorEmitUntilRef.current) return;
 
                 const cursor = instance.getCursor();
                 socket.emit(ACTIONS.CURSOR_MOVE, {
@@ -77,10 +79,17 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
         const handleCodeChange = ({ code }) => {
             if (code !== null && editorRef.current) {
                 const currentCursor = editorRef.current.getCursor();
+                suppressCursorEmitUntilRef.current = Date.now() + 120;
                 isApplyingRemoteChangeRef.current = true;
                 editorRef.current.setValue(code);
-                editorRef.current.setCursor(currentCursor);
+                const doc = editorRef.current.getDoc();
+                const lastLine = doc.lastLine();
+                const safeLine = Math.min(currentCursor.line, lastLine);
+                const lineText = doc.getLine(safeLine) || '';
+                const safeCh = Math.min(currentCursor.ch, lineText.length);
+                doc.setCursor({ line: safeLine, ch: safeCh });
                 isApplyingRemoteChangeRef.current = false;
+                suppressCursorEmitUntilRef.current = Date.now() + 120;
             }
         };
 
