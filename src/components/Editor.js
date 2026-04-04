@@ -12,6 +12,7 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
     const onCodeChangeRef = useRef(onCodeChange);
     const roomIdRef = useRef(roomId);
     const remoteCursorMarksRef = useRef({});
+    const isApplyingRemoteChangeRef = useRef(false);
 
     useEffect(() => {
         onCodeChangeRef.current = onCodeChange;
@@ -51,7 +52,7 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
             });
 
             editorRef.current.on('cursorActivity', (instance) => {
-                if (!socket) return;
+                if (!socket || isApplyingRemoteChangeRef.current) return;
 
                 const cursor = instance.getCursor();
                 socket.emit(ACTIONS.CURSOR_MOVE, {
@@ -75,7 +76,11 @@ const Editor = ({ socket, roomId, username, onCodeChange }) => {
 
         const handleCodeChange = ({ code }) => {
             if (code !== null && editorRef.current) {
+                const currentCursor = editorRef.current.getCursor();
+                isApplyingRemoteChangeRef.current = true;
                 editorRef.current.setValue(code);
+                editorRef.current.setCursor(currentCursor);
+                isApplyingRemoteChangeRef.current = false;
             }
         };
 
