@@ -14,6 +14,7 @@ const EditorPage = () => {
     const codeRef = useRef('');
     const location = useLocation();
     const [clients, setClients] = useState([]);
+    const [socket, setSocket] = useState(null);
 
 
     useEffect(() => {
@@ -25,6 +26,7 @@ const EditorPage = () => {
 
         const init = async () => {
             socketRef.current = await initSocket();
+            setSocket(socketRef.current);
             socketRef.current.on('connect_error', handleErrors)
             socketRef.current.on('connect_failed', handleErrors)
             socketRef.current.on(ACTIONS.JOINED,
@@ -64,6 +66,7 @@ const EditorPage = () => {
                 socketRef.current.off('connect_failed', handleErrors);
                 socketRef.current = null;
             }
+            setSocket(null);
         };
     }, [navigate, roomId, location.state?.username]);
 
@@ -119,13 +122,15 @@ const EditorPage = () => {
             </div>
 
             <div className='editorWrap'>
-                <Editor
-                    socketRef={socketRef}
-                    roomId={roomId}
-                    onCodeChange={(code) => {
-                        codeRef.current = code;
-                    }}
-                />
+                {socket && (
+                    <Editor
+                        socket={socket}
+                        roomId={roomId}
+                        onCodeChange={(code) => {
+                            codeRef.current = code;
+                        }}
+                    />
+                )}
             </div>
         </div>
     );
