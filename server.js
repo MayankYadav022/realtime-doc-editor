@@ -49,6 +49,14 @@ io.on('connection', (socket) => {
         socket.in(roomId).emit(ACTIONS.CODE_CHANGE, { code });
     });
 
+    socket.on(ACTIONS.CURSOR_MOVE, ({ roomId, cursor }) => {
+        socket.in(roomId).emit(ACTIONS.CURSOR_MOVE, {
+            socketId: socket.id,
+            username: userSocketMap[socket.id],
+            cursor,
+        });
+    });
+
     socket.on(ACTIONS.SYNC_CODE, ({ socketId, code }) => {
         io.to(socketId).emit(ACTIONS.CODE_CHANGE, { code });
     });
@@ -56,6 +64,10 @@ io.on('connection', (socket) => {
     socket.on('disconnecting', () => {
         const rooms = [...socket.rooms];
         rooms.forEach((roomId) => {
+            if (roomId === socket.id) {
+                return;
+            }
+
             socket.in(roomId).emit(ACTIONS.DISCONNECTED, {
                 socketId: socket.id,
                 username: userSocketMap[socket.id],

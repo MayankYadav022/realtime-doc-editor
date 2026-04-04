@@ -7,15 +7,23 @@ import 'codemirror/addon/edit/closetag';
 import 'codemirror/addon/edit/closebrackets';
 import ACTIONS from '../Actions';
 
-const Editor = ({ socket, roomId, onCodeChange }) => {
+const Editor = ({ socket, roomId, username, onCodeChange }) => {
     const editorRef = useRef(null);
     const onCodeChangeRef = useRef(onCodeChange);
     const roomIdRef = useRef(roomId);
+    const remoteCursorMarksRef = useRef({});
 
     useEffect(() => {
         onCodeChangeRef.current = onCodeChange;
         roomIdRef.current = roomId;
     }, [onCodeChange, roomId]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(remoteCursorMarksRef.current).forEach((mark) => mark.clear());
+            remoteCursorMarksRef.current = {};
+        };
+    }, []);
 
     useEffect(() => {
         async function init() {
@@ -41,6 +49,16 @@ const Editor = ({ socket, roomId, onCodeChange }) => {
                     });
                 }
             });
+
+            editorRef.current.on('cursorActivity', (instance) => {
+                if (!socket) return;
+
+                const cursor = instance.getCursor();
+                socket.emit(ACTIONS.CURSOR_MOVE, {
+                    roomId: roomIdRef.current,
+                    cursor,
+                });
+            });
         }
         init();
 
@@ -61,12 +79,49 @@ const Editor = ({ socket, roomId, onCodeChange }) => {
             }
         };
 
+        const handleCursorMove = ({ socketId, username: remoteUsername, cursor }) => {
+            if (!editorRef.current || !cursor || socketId === socket.id) {
+                return;
+            }
+
+            const oldMark = remoteCursorMarksRef.current[socketId];
+            if (oldMark) {
+                oldMark.clear();
+            }
+
+            const widget = document.createElement('span');
+            widget.className = 'remote-cursor';
+
+            const tag = document.createElement('span');
+            tag.className = 'remote-cursor-tag';
+            tag.textContent = remoteUsername || 'Guest';
+            widget.appendChild(tag);
+
+            const mark = editorRef.current.setBookmark(cursor, {
+                widget,
+                insertLeft: true,
+            });
+            remoteCursorMarksRef.current[socketId] = mark;
+        };
+
+        const handleUserDisconnected = ({ socketId }) => {
+            const mark = remoteCursorMarksRef.current[socketId];
+            if (mark) {
+                mark.clear();
+                delete remoteCursorMarksRef.current[socketId];
+            }
+        };
+
         socket.on(ACTIONS.CODE_CHANGE, handleCodeChange);
+        socket.on(ACTIONS.CURSOR_MOVE, handleCursorMove);
+        socket.on(ACTIONS.DISCONNECTED, handleUserDisconnected);
 
         return () => {
             socket.off(ACTIONS.CODE_CHANGE, handleCodeChange);
+            socket.off(ACTIONS.CURSOR_MOVE, handleCursorMove);
+            socket.off(ACTIONS.DISCONNECTED, handleUserDisconnected);
         };
-    }, [socket]);
+    }, [socket, username]);
 
     return <textarea id="realtimeEditor"></textarea>;
 };

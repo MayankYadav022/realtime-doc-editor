@@ -1,4 +1,10 @@
-# Getting Started with Create React App
+# Realtime Doc Editor
+
+Deployed URL: https://doc-collab-editor.vercel.app
+
+This project is a realtime collaborative code editor built with React, CodeMirror, Socket.IO, and Express.
+
+## Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

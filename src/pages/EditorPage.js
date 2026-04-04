@@ -126,6 +126,7 @@ const EditorPage = () => {
                     <Editor
                         socket={socket}
                         roomId={roomId}
+                        username={location.state?.username}
                         onCodeChange={(code) => {
                             codeRef.current = code;
                         }}
