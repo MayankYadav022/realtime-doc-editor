@@ -70,7 +70,7 @@ const Home = () => {
                     </button>
                     <span className="createInfo">
                         Don't have invitation code, create one&nbsp;
-                        <a onClick={createNewRoom} href="" className="createNewBtn">new room</a>
+                        <button type="button" onClick={createNewRoom} className="createNewBtn">new room</button>
 
                     </span>
                 </div>

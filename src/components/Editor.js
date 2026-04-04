@@ -9,6 +9,14 @@ import ACTIONS from '../Actions';
 
 const Editor = ({ socketRef, roomId, onCodeChange }) => {
     const editorRef = useRef(null);
+    const onCodeChangeRef = useRef(onCodeChange);
+    const roomIdRef = useRef(roomId);
+
+    useEffect(() => {
+        onCodeChangeRef.current = onCodeChange;
+        roomIdRef.current = roomId;
+    }, [onCodeChange, roomId]);
+
     useEffect(() => {
         async function init() {
             editorRef.current = Codemirror.fromTextArea(
@@ -25,34 +33,41 @@ const Editor = ({ socketRef, roomId, onCodeChange }) => {
             editorRef.current.on('change', (instance, changes) => {
                 const { origin } = changes;
                 const code = instance.getValue();
-                onCodeChange(code);
-                if (origin !== 'setValue') {
+                onCodeChangeRef.current?.(code);
+                if (origin !== 'setValue' && socketRef.current) {
                     socketRef.current.emit(ACTIONS.CODE_CHANGE, {
-                        roomId,
+                        roomId: roomIdRef.current,
                         code,
                     });
                 }
             });
         }
         init();
-    }, []);
-
-    useEffect(() => {
-        if (socketRef.current) {
-            socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code }) => {
-                if (code !== null) {
-                    editorRef.current.setValue(code);
-                }
-            });
-        }
 
         return () => {
-            if (socketRef.current) {
-                socketRef.current.off(ACTIONS.CODE_CHANGE);
+            if (editorRef.current) {
+                editorRef.current.toTextArea();
+                editorRef.current = null;
             }
-
         };
-    }, [socketRef.current]);
+    }, [socketRef]);
+
+    useEffect(() => {
+        const socket = socketRef.current;
+        if (!socket) return;
+
+        const handleCodeChange = ({ code }) => {
+            if (code !== null && editorRef.current) {
+                editorRef.current.setValue(code);
+            }
+        };
+
+        socket.on(ACTIONS.CODE_CHANGE, handleCodeChange);
+
+        return () => {
+            socket.off(ACTIONS.CODE_CHANGE, handleCodeChange);
+        };
+    }, [socketRef]);
 
     return <textarea id="realtimeEditor"></textarea>;
 };
